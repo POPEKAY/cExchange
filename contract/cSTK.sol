@@ -10,6 +10,8 @@ contract cSTK is ERC20, Ownable {
     // Exchange is inheriting ERC20, because our exchange would keep track of Crypto Dev LP tokens
     constructor() ERC20("Celo Stake", "cSTK") {}
 
+    address public exchangeAddress;
+
     /**
      *@dev send celo for cSTK
      */
@@ -23,7 +25,7 @@ contract cSTK is ERC20, Ownable {
     /**
      *@dev sell cSTK tokens for Celo
      */
-    function sellTokensForCelo(uint _amountOfcSTK) public {
+    function sellTokensForCelo(uint _amountOfcSTK) public payable {
         require(_amountOfcSTK > 0, "Insufficient Celo paid");
         require(
             balanceOf(msg.sender) >= _amountOfcSTK,
@@ -39,8 +41,20 @@ contract cSTK is ERC20, Ownable {
         require(sent, "Failed to send celo. Reverting transaction");
     }
 
+    /**
+        * @dev allow the contract's owner to update the exchange rate
+     */
     function setExchangeRate(uint _exchangeRate) public onlyOwner {
         exchangeRate = _exchangeRate;
+    }
+
+    function setExchangeAddress(address _exchange) public onlyOwner {
+        exchangeAddress = _exchange;
+    }
+
+    function exchangeMint(uint amount) external {
+        require(exchangeAddress == msg.sender);
+        _mint(exchangeAddress, amount);
     }
 
 
