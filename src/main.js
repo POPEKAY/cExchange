@@ -1,14 +1,13 @@
 import Web3 from "web3";
 import { newKitFromWeb3 } from "@celo/contractkit";
 import BigNumber from "bignumber.js";
-import erc20Abi from "../contract/erc20.abi.json";
 import stakerAbi from "../contract/staker.abi.json";
 import cstkAbi from "../contract/cstk.abi.json";
 
 const ERC20_DECIMALS = 18;
-const STAKEPERIODS=["NOT SELECTED", "30 DAYS", "60 DAYS", "90 DAYS", "128 DAYS"]
-const stakerContractAddress = "0x793a6db5190762F3cB8DF0997DA22f4287D0e3C8";
-const cSTKContractAddress = "0xe0CA3C65e943351f3a050BB4b2847b073dd7203D";
+const STAKEPERIODS = ["NOT SELECTED", "30 DAYS", "60 DAYS", "90 DAYS", "128 DAYS"]
+const stakerContractAddress = "0xfA83dE9B05425d9547035425400b4321446c3b55";
+const cSTKContractAddress = "0xbbc1F0B458b8F498B50aBFEedDD1b8b8603982Cb";
 
 let kit;
 let stakerContract;
@@ -17,8 +16,8 @@ let cSTKContract;
 const debounce = (func, timeout = 300) => {
     let timer;
     return (...args) => {
-      clearTimeout(timer);
-      timer = setTimeout(() => { func.apply(this, args); }, timeout);
+        clearTimeout(timer);
+        timer = setTimeout(() => { func.apply(this, args); }, timeout);
     };
 }
 
@@ -66,7 +65,7 @@ const getBalance = async function () {
     document.querySelector("#balance").textContent = cUSDBalance;
 };
 
-const renderSwapForCeloUI = async function (){
+const renderSwapForCeloUI = async function () {
     const html = `
     <div class="container" id="swap-content">
     <div class="row justify-content-md-center">
@@ -120,7 +119,7 @@ const renderSwapForCeloUI = async function (){
     document.getElementById("mainContainer").innerHTML = html;
 }
 
-const renderSwapForCSTKUI = async function (){
+const renderSwapForCSTKUI = async function () {
     const html = `
     <div class="container" id="swap-content">
     <div class="row justify-content-md-center">
@@ -177,16 +176,17 @@ const renderStakes = async function (stakes = []) {
     const html = `
     <div class="container" id="stake-content">
     <div class="row justify-content-md-center">
-        ${!stakes.length ? '<div class="alert alert-warning" role="alert">You have made no staking</div>': "" } 
+        ${!stakes.length ? '<div class="alert alert-warning" role="alert">You have made no staking</div>' : ""} 
     </div>
-    ${ stakes.length ? `
+    ${stakes.length ? `
     <div class="row justify-content-md-center">
         <div class="col-sm-12 col-md-8">
             <table class="table table-hover">
                 <thead>
                     <tr>
                       <th scope="col">#</th>
-                      <th scope="col">amount</th>
+                      <th scope="col">Amount</th>
+                      <th scope="col">Royalty</th>
                       <th scope="col">Timespan</th>
                       <th scope="col">Matures</th>
                       <th scope="col">Withdrawn</th>
@@ -195,22 +195,27 @@ const renderStakes = async function (stakes = []) {
                   </thead>
                   <tbody>
                     ${stakes.reduce((acummulator, stake, idx) => {
-                        const temp = `
+        const temp = `
                         <tr>
                             <th scope="row">${stake.index}</th>
-                            <td>${BigNumber(stake.amount).shiftedBy(-ERC20_DECIMALS ).toFixed(2)}</td>
+                            <td>${BigNumber(stake.amount).shiftedBy(-ERC20_DECIMALS).toFixed(2)}</td>
+                            <td>${BigNumber(stake.royalty).shiftedBy(-ERC20_DECIMALS).toFixed(2)}</td>
                             <td>${STAKEPERIODS[stake.period]}</td>
                             <td>${new Date(stake.unlockTimestamp * 1000).toLocaleDateString()}</td>
                             <td>${stake.withdrawn}</td>
                             <td>
-                                ${!stake.withdrawn && (stake.unlockTimestamp * 1000 < Date.now()) 
-                                    ? `<button data-stake="${stake.index - 1}" class="withdraw-cstk-btn btn btn-success">Withdraw</button>`: 
-                                    `<button data-stake="${stake.index - 1}" class="withdraw-cstk-btn btn btn-success" disabled>Withdraw</button>`}
+                                ${!stake.withdrawn && (stake.unlockTimestamp * 1000 < Date.now())
+                ? `<button data-stake="${stake.index}" class="withdraw-cstk-btn btn btn-success">Withdraw</button>` :
+                `<button data-stake="${stake.index }" class="withdraw-cstk-btn btn btn-success" disabled>Withdraw</button>`}
+
+                                ${!stake.withdrawn && (stake.unlockTimestamp * 1000 > Date.now())
+                ? `<button data-stake="${stake.index}" class="abort-cstk-btn btn btn-success">Abort</button>` :
+                `<button data-stake="${stake.index}" class="abort-cstk-btn btn btn-success" disabled>Abort</button>`}
                             </td>
                         </tr>
                         `;
-                        return acummulator + temp;
-                    }, "")}
+        return acummulator + temp;
+    }, "")}
                   </tbody>
             </table>
         </div>
@@ -244,6 +249,11 @@ const stakecSTK = async function (amountOfcSTK, stakePeriod) {
     return txn;
 }
 
+const getStakeRoyalty = async function (stakePeriod){
+    const royalty = await stakerContract.methods.royalties(stakePeriod).call();
+    return royalty;
+}
+
 const getAllStake = async function () {
     const numberOfStakes = await stakerContract.methods.numberOf(kit.defaultAccount).call();
 
@@ -253,7 +263,7 @@ const getAllStake = async function () {
         let _stake = new Promise(async (resolve, reject) => {
             const stakeIndex = await stakerContract.methods.ownedStakes(kit.defaultAccount, i).call();
             const stake = await stakerContract.methods.stakes(stakeIndex).call();
-            resolve({index: i+1, ...stake});
+            resolve({ index: stakeIndex, ...stake });
         });
 
         stakes.push(_stake);
@@ -272,6 +282,10 @@ const withdrawStake = async function (stakeIndex) {
     const txn = await stakerContract.methods.withdrawStake(stakeIndex).send({ from: kit.defaultAccount });
     return;
 }
+const abortStake = async function (stakeIndex) {
+    const txn = await stakerContract.methods.abortStake(stakeIndex).send({ from: kit.defaultAccount });
+    return;
+}
 
 window.addEventListener("load", async () => {
     notification("⌛ Loading...");
@@ -279,34 +293,33 @@ window.addEventListener("load", async () => {
     await getBalance();
     await getCSTKBalance();
 
-    if(window.location.pathname.includes("stake")){
+    if (window.location.search.includes("stake")) {
         renderStakes(await getAllStake());
         console.log("showit")
-    }else if(window.location.pathname.includes("swap")){
-        if(window.location.search.includes("token=celo")){
-            renderSwapForCeloUI();
-        }else {
+    } else if (window.location.search.includes("token=celo")) {
+        renderSwapForCeloUI();
+    } else {
 
-            renderSwapForCSTKUI();
-        }
+        renderSwapForCSTKUI();
     }
+
 
     notificationOff();
 });
 
-const estimateCeloTocSTK = debounce(async(celoAmount) => {
+const estimateCeloTocSTK = debounce(async (celoAmount) => {
     const exchangeRate = await cSTKContract.methods.exchangeRate().call();
     const cSTKAmount = BigNumber(exchangeRate) * BigNumber(celoAmount).shiftedBy(ERC20_DECIMALS);
 
     document.querySelector("#floatingcSTKInput").value = BigNumber(cSTKAmount).shiftedBy(-ERC20_DECIMALS).toFixed(8);
-})
-const estimatecSTKToCelo = debounce(async(cSTKAmount) => {
+});
+
+const estimatecSTKToCelo = debounce(async (cSTKAmount) => {
     const exchangeRate = await cSTKContract.methods.exchangeRate().call();
-    const celoAmount =  BigNumber(cSTKAmount).shiftedBy(ERC20_DECIMALS) / BigNumber(exchangeRate);
+    const celoAmount = BigNumber(cSTKAmount).shiftedBy(ERC20_DECIMALS) / BigNumber(exchangeRate);
 
     document.querySelector("#floatingCeloInput").value = BigNumber(celoAmount).shiftedBy(-ERC20_DECIMALS).toFixed(8);
-})
-
+});
 
 document.querySelector("#mainContainer").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -315,21 +328,19 @@ document.querySelector("#mainContainer").addEventListener("submit", async (e) =>
 
     notification(`⌛ Swapping Tokens...`);
     try {
-        if(e.target.name === "cSTKToCeloForm"){
+        if (e.target.name === "cSTKToCeloForm") {
             await swapcSTKForCelo(BigNumber(formData.get("floatingcSTKInput")).shiftedBy(ERC20_DECIMALS));
-        }else if(e.target.name === "celoTocSTKForm"){
+        } else if (e.target.name === "celoTocSTKForm") {
             await swapCeloForcSTk(BigNumber(formData.get("floatingCeloInput")).shiftedBy(ERC20_DECIMALS));
         }
 
         notification(`🎉 You successfully swaped.`);
         window.location.reload();
-
     } catch (error) {
         console.log(error);
         notification(`⚠️ ${error}.`);
     } finally {
         // await getCSTKBalance();
-        
     }
 });
 
@@ -346,8 +357,8 @@ document.stakecSTKForm.addEventListener("submit", async (e) => {
             new BigNumber(formData.get("stakecSTKInput")).shiftedBy(ERC20_DECIMALS),
             formData.get("stakecSTKPeriod")
         );
-        notification(`🎉 You successfully added "${data.name}".`);
-
+        notification(`🎉 You successfully staked ${formData.get("stakecSTKInput")} cSTK.`);
+        window.location.reload();
     } catch (error) {
         console.log(error);
         notification(`⚠️ ${error}.`);
@@ -358,19 +369,35 @@ document.stakecSTKForm.addEventListener("submit", async (e) => {
 });
 
 document.querySelector("#mainContainer").addEventListener("click", async (e) => {
+
     e.stopPropagation();
     // .withdraw-cstk-btn
-    if(e.target.className.includes("withdraw-cstk-btn")){
+
+    if (e.target.className.includes("withdraw-cstk-btn")) {
         await withdrawStake(e.target.dataset.stake);
+        return;
+    }
+
+    if (e.target.className.includes("abort-cstk-btn")) {
+        console.log(e.target.dataset.stake);
+        await abortStake(e.target.dataset.stake);
+        return;
     }
 });
 
 document.querySelector("#mainContainer").addEventListener("change", async (e) => {
     e.stopPropagation();
     // .withdraw-cstk-btn
-    if(e.target.id === "floatingCeloInput"){
+    if (e.target.id === "floatingCeloInput") {
         estimateCeloTocSTK(e.target.value);
-    }else if(e.target.id === "floatingcSTKInput"){
+    } else if (e.target.id === "floatingcSTKInput") {
         estimatecSTKToCelo(e.target.value);
     }
+});
+
+document.querySelector("#stakecSTKPeriod").addEventListener("change", async (e) => {
+    e.stopPropagation();
+    // .withdraw-cstk-btn
+   document.querySelector("#stakeRoyalty").value = `${(await getStakeRoyalty(e.target.value)) / 1000}%` ;
+   window.location.reload();
 });

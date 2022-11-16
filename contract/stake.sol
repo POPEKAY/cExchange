@@ -15,6 +15,7 @@ contract Staker is Ownable {
     struct Stake {
         address owner;
         uint256 amount;
+        uint256 royalty;
         STAKEPERIOD period;
         uint256 unlockTimestamp;
         bool withdrawn;
@@ -75,6 +76,7 @@ contract Staker is Ownable {
         _stake.owner = msg.sender;
         _stake.amount = _amountOfcSTK;
         _stake.period = _stakePeriod;
+        _stake.royalty = (_amountOfcSTK * royalties[_stakePeriod]) / 1000;
         _stake.unlockTimestamp = block.timestamp + lockTimes[_stakePeriod];
         _stake.deposited = true;
 
@@ -108,19 +110,30 @@ contract Staker is Ownable {
     }
 
     function withdrawStake(uint _stakeId) public {
-        require(_stakeId < _stakeCounter.current(), "Invalid stake id");
+        require(_stakeId <= _stakeCounter.current(), "Invalid stake id");
         require(stakes[_stakeId].amount > 0, "Invalid stake id");
         require(stakes[_stakeId].owner == msg.sender, "Only stake owner can access");
         require(stakes[_stakeId].unlockTimestamp < block.timestamp, "Stake period is not over yet");
         require(stakes[_stakeId].deposited && !stakes[_stakeId].withdrawn, "Stake is withdrawn or not deposited");
 
-        uint stakedAmount = stakes[_stakeId].amount;
-
-        // calculate stake royalty
-        uint royalty = (stakedAmount * royalties[stakes[_stakeId].period]) / 1000;
+        uint amountDue = stakes[_stakeId].amount + stakes[_stakeId].royalty;
 
         stakes[_stakeId].withdrawn = true;
 
-        ERC20(cSTKTokenAddress).transfer(msg.sender, (stakedAmount + royalty));
+        ERC20(cSTKTokenAddress).transfer(msg.sender, amountDue);
+    }
+
+    function abortStake(uint _stakeId) public {
+        require(_stakeId <= _stakeCounter.current(), "Invalid stake id");
+        require(stakes[_stakeId].amount > 0, "Invalid stake id");
+        require(stakes[_stakeId].owner == msg.sender, "Only stake owner can access");
+        require(stakes[_stakeId].unlockTimestamp >  block.timestamp, "Stake period is not over yet");
+        require(stakes[_stakeId].deposited && !stakes[_stakeId].withdrawn, "Stake is withdrawn or not deposited");
+
+        uint amountDue = stakes[_stakeId].amount - stakes[_stakeId].royalty;
+
+        stakes[_stakeId].withdrawn = true;
+
+        ERC20(cSTKTokenAddress).transfer(msg.sender, amountDue);
     }
 }

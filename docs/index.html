@@ -35,7 +35,7 @@
                                 <a
                                     class="nav-link active"
                                     aria-current="page"
-                                    href="/swap?token=cstk"
+                                    href="?token=cstk"
                                     >Swap Celo To cSTK</a
                                 >
                             </li>
@@ -43,13 +43,13 @@
                                 <a
                                     class="nav-link active"
                                     aria-current="page"
-                                    href="/swap?token=celo"
+                                    href="?token=celo"
                                     >Swap cSTK To CELO</a
                                 >
                             </li>
                            
                             <li class="nav-item">
-                                <a class="nav-link" href="/stake">Stake cSTK</a>
+                                <a class="nav-link" href="?stake">Stake cSTK</a>
                             </li>
                         </ul>
                     </div>
@@ -132,6 +132,19 @@
                                         <label for="stakecSTKPeriod"
                                             >Period</label
                                         >
+                                    </div>
+                                    <div class="form-floating mt-2">
+                                        
+                                        <input
+                                            name="stakeRoyalty"
+                                            type="text"
+                                            class="form-control"
+                                            id="stakeRoyalty"
+                                            placeholder="Rate %"
+                                            value="15%"
+                                            disabled
+                                        />
+                                        <label for="stakeRoyalty">Royalty</label>
                                     </div>
                                     <button
                                         type="submit"
