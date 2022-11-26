@@ -399,5 +399,4 @@ document.querySelector("#stakecSTKPeriod").addEventListener("change", async (e) 
     e.stopPropagation();
     // .withdraw-cstk-btn
    document.querySelector("#stakeRoyalty").value = `${(await getStakeRoyalty(e.target.value)) / 1000}%` ;
-   window.location.reload();
 });
