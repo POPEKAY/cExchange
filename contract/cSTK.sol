@@ -1,4 +1,3 @@
-//SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -17,8 +16,10 @@ contract cSTK is ERC20, Ownable {
      */
     function purchaseTokens() public payable {
         require(msg.value > 0, "Insufficient Celo paid");
+        require(address(this).balance >= msg.value, "Insufficient funds in contract to mint tokens");
 
         uint tokensBought = msg.value * exchangeRate;
+        require(tokensBought > 0, "Invalid exchange rate");
         _mint(msg.sender, tokensBought);
     }
 
@@ -26,13 +27,11 @@ contract cSTK is ERC20, Ownable {
      *@dev sell cSTK tokens for Celo
      */
     function sellTokensForCelo(uint _amountOfcSTK) public payable {
-        require(_amountOfcSTK > 0, "Insufficient Celo paid");
-        require(
-            balanceOf(msg.sender) >= _amountOfcSTK,
-            "Insufficient amount of cSTK available"
-        );
+        require(_amountOfcSTK > 0, "Insufficient cSTK specified");
+        require(balanceOf(msg.sender) >= _amountOfcSTK, "Insufficient amount of cSTK available");
 
         uint amountOfCelo = _amountOfcSTK / exchangeRate;
+        require(amountOfCelo > 0, "Invalid exchange rate");
 
         _burn(msg.sender, _amountOfcSTK);
 
@@ -45,17 +44,17 @@ contract cSTK is ERC20, Ownable {
         * @dev allow the contract's owner to update the exchange rate
      */
     function setExchangeRate(uint _exchangeRate) public onlyOwner {
+        require(_exchangeRate > 0, "Invalid exchange rate");
         exchangeRate = _exchangeRate;
     }
 
     function setExchangeAddress(address _exchange) public onlyOwner {
+        require(_exchange != address(0), "Invalid exchange address");
         exchangeAddress = _exchange;
     }
 
     function exchangeMint(uint amount) external {
-        require(exchangeAddress == msg.sender);
+        require(exchangeAddress == msg.sender, "Caller is not the exchange address");
         _mint(exchangeAddress, amount);
     }
-
-
 }
